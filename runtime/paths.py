@@ -38,8 +38,16 @@ class ProjectPaths:
     # --- Source code paths ---
     @property
     def src(self) -> Path:
-        """Bean Beaver code directory (vendor/beanbeaver/)."""
-        return self.root / "vendor" / "beanbeaver"
+        """Bean Beaver code directory.
+
+        Supports both:
+        - host project layout: <root>/vendor/beanbeaver/
+        - standalone beanbeaver layout: <root>/
+        """
+        vendored = self.root / "vendor" / "beanbeaver"
+        if vendored.exists():
+            return vendored
+        return self.root
 
     # --- Configuration paths ---
     @property
@@ -49,8 +57,23 @@ class ProjectPaths:
 
     @property
     def merchant_rules(self) -> Path:
-        """Merchant categorization rules TOML file."""
+        """Project-local merchant categorization rules TOML file."""
         return self.config / "merchant_rules.toml"
+
+    @property
+    def rules(self) -> Path:
+        """Vendor shared default rules directory."""
+        return self.src / "rules"
+
+    @property
+    def default_merchant_rules(self) -> Path:
+        """Vendor default merchant categorization rules TOML file (canonical)."""
+        return self.rules / "default_merchant_rules.toml"
+
+    @property
+    def legacy_default_merchant_rules(self) -> Path:
+        """Legacy vendor default merchant rules path."""
+        return self.src / "runtime" / "rules" / "default_merchant_rules.toml"
 
     @property
     def chequing_rules(self) -> Path:
@@ -69,7 +92,12 @@ class ProjectPaths:
 
     @property
     def default_item_classifier_rules(self) -> Path:
-        """Vendor default receipt item classifier rules TOML file."""
+        """Vendor default receipt item classifier rules TOML file (canonical)."""
+        return self.rules / "default_item_classifier.toml"
+
+    @property
+    def legacy_default_item_classifier_rules(self) -> Path:
+        """Legacy vendor default receipt item classifier rules path."""
         return self.src / "receipt" / "rules" / "default_item_classifier.toml"
 
     # --- Records/ledger paths ---
