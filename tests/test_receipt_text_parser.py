@@ -69,3 +69,66 @@ def test_extract_items_skips_malformed_offer_fragments_with_price() -> None:
     matching = [item for item in items if item.price == Decimal("1.98")]
     assert len(matching) == 2
     assert all(item.description == "XBL - Spicy Crawfish Past" for item in matching)
+
+
+def test_extract_items_skips_reg_marker_only_price_lines() -> None:
+    lines = [
+        "&& Frozen",
+        "*Shirakiku Frozen Imitatio 1.99",
+        "(9)@REG$3.99",
+        "*Frozen Raw Vannanei White",
+        "(@REG15.99",
+        "3 @ $10.99 32.97",
+        "SUB Total 34.96",
+        "Total after Tax 34.96",
+    ]
+
+    items = _extract_items(
+        lines,
+        summary_amounts={Decimal("34.96")},
+        item_category_rule_layers=load_item_category_rule_layers(),
+    )
+
+    assert [item.price for item in items] == [Decimal("1.99"), Decimal("32.97")]
+    assert items[0].description == "*Shirakiku Frozen Imitatio"
+    assert items[1].description == "*Frozen Raw Vannanei White"
+
+
+def test_extract_items_skips_reg_marker_without_dollar_or_at_symbol() -> None:
+    lines = [
+        "*Vita Hongkong Style Milk 2.99",
+        "(1REG8.99",
+        "*KsF Big Instant Noodles ( 6.99",
+        "SUB Total 9.98",
+        "Total after Tax 9.98",
+    ]
+
+    items = _extract_items(
+        lines,
+        summary_amounts={Decimal("9.98")},
+        item_category_rule_layers=load_item_category_rule_layers(),
+    )
+
+    assert [item.price for item in items] == [Decimal("2.99"), Decimal("6.99")]
+    assert items[0].description == "*Vita Hongkong Style Milk"
+    assert items[1].description == "*KsF Big Instant Noodles ("
+
+
+def test_extract_items_skips_malformed_parenthesized_price_marker() -> None:
+    lines = [
+        "*Samyang Buldak Artificial 5.99",
+        "(=kx(EG$8.99",
+        "Wing Hing Sweet Soy Bever 2.99",
+        "SUB Total 8.98",
+        "Total after Tax 8.98",
+    ]
+
+    items = _extract_items(
+        lines,
+        summary_amounts={Decimal("8.98")},
+        item_category_rule_layers=load_item_category_rule_layers(),
+    )
+
+    assert [item.price for item in items] == [Decimal("5.99"), Decimal("2.99")]
+    assert items[0].description == "*Samyang Buldak Artificial"
+    assert items[1].description == "Wing Hing Sweet Soy Bever"

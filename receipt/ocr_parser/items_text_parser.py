@@ -166,11 +166,26 @@ def _extract_items(
                 price = -price
 
             line_upper = line.upper()
+            desc_part = line[: match.start()].strip()
             # Handle @REG$/REG$ promo lines.
             # If line is just a reg-price marker (single price), skip it.
             # If line includes both reg and sale prices, treat as price line for the item above.
-            if "REG$" in line_upper or "@REG" in line_upper:
+            has_reg_marker = (
+                "REG$" in line_upper
+                or "@REG" in line_upper
+                or "0REG" in line_upper
+                or "OREG" in line_upper
+                or re.search(r"(?:^|[^A-Z0-9])[0-9OI]?REG\$?\d+\.\d{2}", line_upper) is not None
+            )
+            if has_reg_marker:
                 prices = re.findall(r"(\d+\.\d{2})", line)
+                if len(prices) == 1:
+                    # Marker-only rows like "(9)@REG$3.99" are metadata, not payable totals.
+                    # Keep descriptive rows such as "ITEM @REG$8.99" for fallback matching.
+                    marker = re.sub(r"[^A-Z0-9]", "", desc_part.upper())
+                    marker = re.sub(r"^\d+", "", marker)
+                    if marker in {"REG", "0REG", "OREG", "IREG"}:
+                        continue
                 # If previous line already contains a price, this is just promo info; skip it.
                 if len(prices) > 1 and i > 0 and re.search(r"\d+\.\d{2}\s*[HhTtJj]?\s*$", lines[i - 1]):
                     continue
@@ -187,7 +202,6 @@ def _extract_items(
                     continue
 
             # Get description from same line (before the price)
-            desc_part = line[: match.start()].strip()
             # Promo lines like "REG$8.99 5.99" should use the previous line as description
             force_backward = "REG$" in line_upper or "@REG" in line_upper
 
@@ -227,6 +241,15 @@ def _extract_items(
             # Check if desc_part is valid: not empty, not too short, not a quantity expression
             # Quantity expressions like "2 @ 2/$5.00" should trigger backward search instead
             # Also handle promotional patterns like "(1 /for $2.99) 1 /for" from C&C receipts
+            is_malformed_price_marker = bool(
+                desc_part
+                and desc_part.startswith("(")
+                and "$" in desc_part
+                and " " not in desc_part
+                and len(desc_part) <= 16
+                and "@" not in desc_part
+                and "REG" not in desc_part.upper()
+            )
             is_qty_expr = (
                 (
                     _looks_like_quantity_expression(desc_part)
@@ -236,6 +259,8 @@ def _extract_items(
                 if desc_part
                 else False
             )
+            if is_malformed_price_marker:
+                continue
 
             if desc_part and len(desc_part) > 2 and not is_qty_expr and not force_backward:
                 items.append(
