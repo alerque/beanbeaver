@@ -161,3 +161,66 @@ def test_extract_items_handles_spaced_decimal_quantities_and_prefixed_sku_lines(
 def test_extract_price_from_line_accepts_spaced_decimals() -> None:
     assert _extract_price_from_line("2 @ $1.75 3. 50") == Decimal("3.50")
     assert _extract_price_from_line("06780000102 VEG OIL MRJ 6. 99") == Decimal("6.99")
+
+
+def test_extract_items_merges_hyphenated_multiline_description() -> None:
+    lines = [
+        "&& 01-Grocery  3.59",
+        "Foojoy -",
+        "Donghei Cold No",
+        "(1kg) 16.99",
+        "MK - Instant Noodle Pickl 2.98",
+        "SUBTOTAL 23.56",
+        "TOTAL 23.56",
+    ]
+
+    items = _extract_items(
+        lines,
+        summary_amounts={Decimal("23.56")},
+        item_category_rule_layers=load_item_category_rule_layers(),
+    )
+
+    assert any(item.description == "Foojoy - Donghei Cold No" and item.price == Decimal("3.59") for item in items)
+
+
+def test_extract_items_uses_context_for_parenthetical_inline_price() -> None:
+    lines = [
+        "Foojoy -",
+        "Donghei Cold No",
+        "(1kg) 16.99",
+        "SUBTOTAL 16.99",
+        "TOTAL 16.99",
+    ]
+
+    items = _extract_items(
+        lines,
+        summary_amounts={Decimal("16.99")},
+        item_category_rule_layers=load_item_category_rule_layers(),
+    )
+
+    assert len(items) == 1
+    assert items[0].price == Decimal("16.99")
+    assert items[0].description == "Foojoy - Donghei Cold No (1kg)"
+
+
+def test_extract_items_skips_quantity_stub_price_lines() -> None:
+    lines = [
+        "295619 KS BAGS 60 12.99",
+        "2 @ 9.69",
+        "430 XL EGGS 19.38",
+        "SUBTOTAL 32.37",
+        "TOTAL 32.37",
+    ]
+
+    items = _extract_items(
+        lines,
+        summary_amounts={Decimal("32.37")},
+        item_category_rule_layers=load_item_category_rule_layers(),
+    )
+
+    prices = [item.price for item in items]
+    descriptions = [item.description for item in items]
+    assert Decimal("9.69") not in prices
+    assert all(desc != "2 @" for desc in descriptions)
+    assert Decimal("12.99") in prices
+    assert Decimal("19.38") in prices

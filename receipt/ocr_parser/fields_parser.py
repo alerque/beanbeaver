@@ -101,133 +101,146 @@ def _extract_merchant_with_confidence(pages: list[dict[str, Any]]) -> str | None
     return None
 
 
+_SEPARATED_DATE_PATTERN = re.compile(r"(?<!\d)(\d{1,4})[./-](\d{1,2})[./-](\d{1,4})(?!\d)")
+_COMPACT_DATE_PATTERN = re.compile(r"(?<!\d)(\d{4})(\d{2})(\d{2})(?!\d)")
+_MONTH_NAME_DATE_PATTERN = re.compile(
+    r"\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+(\d{1,2}),?\s+(\d{4})\b",
+    re.IGNORECASE,
+)
+_DATE_CONTEXT_HINT = re.compile(r"\b(DATE(?:TIME)?|TRANS(?:ACTION)?\s*DATE)\b", re.IGNORECASE)
+
+
+def _to_four_digit_year(year: int) -> int:
+    """Convert 2-digit years to a century with POS-receipt-friendly defaults."""
+    if year < 100:
+        return 2000 + year if year <= 69 else 1900 + year
+    return year
+
+
+def _safe_date(year: int, month: int, day: int) -> date | None:
+    """Return a valid date if inputs are in range, otherwise None."""
+    try:
+        return date(year, month, day)
+    except ValueError:
+        return None
+
+
+def _numeric_date_candidates(part1: str, part2: str, part3: str) -> list[tuple[date, str]]:
+    """Generate plausible date candidates from a tokenized numeric date."""
+    a = int(part1)
+    b = int(part2)
+    c = int(part3)
+    candidates: list[tuple[date, str]] = []
+
+    def add(year: int, month: int, day: int, kind: str) -> None:
+        parsed = _safe_date(year, month, day)
+        if parsed is not None:
+            candidates.append((parsed, kind))
+
+    if len(part1) == 4:
+        add(a, b, c, "ymd4")
+        return candidates
+
+    if len(part3) == 4:
+        # If one side is invalid month/day, format is effectively disambiguated.
+        if a > 12 and b <= 12:
+            add(c, b, a, "dmy4")
+        elif b > 12 and a <= 12:
+            add(c, a, b, "mdy4")
+        else:
+            # North America default first, then DD/MM/YYYY fallback.
+            add(c, a, b, "mdy4")
+            add(c, b, a, "dmy4")
+        return candidates
+
+    year_a = _to_four_digit_year(a)
+    year_c = _to_four_digit_year(c)
+
+    # YY/MM/DD appears in many payment terminal "DateTime" lines.
+    if b <= 12 and c <= 31:
+        add(year_a, b, c, "ymd2")
+
+    if a <= 12 and b <= 31:
+        add(year_c, a, b, "mdy2")
+    if b <= 12 and a <= 31:
+        add(year_c, b, a, "dmy2")
+
+    return candidates
+
+
 # TODO remove it
 def _extract_date(lines: list[str], full_text: str) -> date | None:
     """Extract date from receipt (returns None if unknown)."""
-    today = date.today()
-    current_yy = today.year % 100
+    if not full_text and not lines:
+        return None
+    source_lines = lines or [line.strip() for line in full_text.split("\n") if line.strip()]
+    month_map = {
+        "jan": 1,
+        "feb": 2,
+        "mar": 3,
+        "apr": 4,
+        "may": 5,
+        "jun": 6,
+        "jul": 7,
+        "aug": 8,
+        "sep": 9,
+        "oct": 10,
+        "nov": 11,
+        "dec": 12,
+    }
+    current_year = date.today().year
+    current_yy = current_year % 100
 
-    def to_full_year(two_digit: int) -> int:
-        return 2000 + two_digit if two_digit <= 69 else 1900 + two_digit
+    ranked_candidates: list[tuple[int, int, int, date]] = []
+    for line_idx, line in enumerate(source_lines):
+        normalized_line = _normalize_decimal_spacing(line)
+        hint_bonus = 40 if _DATE_CONTEXT_HINT.search(normalized_line) else 0
+        prefer_year_first = hint_bonus > 0
 
-    def resolve_two_digit_triplet(a: int, b: int, c: int, *, prefer_year_first: bool) -> date | None:
-        # Terminal-style DateTime tokens are often YY/MM/DD (e.g., 26/03/03).
-        if prefer_year_first and 20 <= a <= current_yy + 1:
-            try:
-                return date(to_full_year(a), b, c)
-            except ValueError:
-                pass
+        for match in _SEPARATED_DATE_PATTERN.finditer(normalized_line):
+            part1, part2, part3 = match.groups()
+            for parsed, kind in _numeric_date_candidates(part1, part2, part3):
+                if kind == "ymd2":
+                    # Treat ambiguous short dates as YY/MM/DD only in date-labeled context.
+                    year_token = int(part1)
+                    if not (prefer_year_first and 20 <= year_token <= current_yy + 1):
+                        continue
+                base = {
+                    "ymd4": 35,
+                    "ymd2": 28,
+                    "mdy4": 25,
+                    "dmy4": 24,
+                    "mdy2": 22,
+                    "dmy2": 20,
+                }.get(kind, 0)
+                # Keep a weak North America bias for ambiguous short dates.
+                if kind == "mdy2":
+                    base += 2
+                if kind == "ymd2" and prefer_year_first:
+                    base += 3
+                year_score = max(0, 10 - abs(parsed.year - current_year))
+                ranked_candidates.append((base + hint_bonus + year_score, line_idx, match.start(), parsed))
 
-        year = to_full_year(c)
-        # Unambiguous DD/MM/YY (first token cannot be month)
-        if a > 12 >= b:
-            try:
-                return date(year, b, a)
-            except ValueError:
-                return None
-        # Unambiguous MM/DD/YY (second token cannot be month)
-        if b > 12 >= a:
-            try:
-                return date(year, a, b)
-            except ValueError:
-                return None
-        # Ambiguous: keep North America default.
-        try:
-            return date(year, a, b)
-        except ValueError:
-            try:
-                return date(year, b, a)
-            except ValueError:
-                return None
+        for match in _COMPACT_DATE_PATTERN.finditer(normalized_line):
+            parsed = _safe_date(int(match.group(1)), int(match.group(2)), int(match.group(3)))
+            if parsed is not None:
+                year_score = max(0, 10 - abs(parsed.year - current_year))
+                ranked_candidates.append((30 + hint_bonus + year_score, line_idx, match.start(), parsed))
 
-    def resolve_four_digit_triplet(a: int, b: int, year: int) -> date | None:
-        # DD/MM/YYYY if first token is impossible as month, otherwise MM/DD/YYYY.
-        if a > 12 >= b:
-            try:
-                return date(year, b, a)
-            except ValueError:
-                return None
-        try:
-            return date(year, a, b)
-        except ValueError:
-            try:
-                return date(year, b, a)
-            except ValueError:
-                return None
+        for match in _MONTH_NAME_DATE_PATTERN.finditer(normalized_line):
+            month = month_map.get(match.group(1)[:3].lower())
+            if month is None:
+                continue
+            parsed = _safe_date(int(match.group(3)), month, int(match.group(2)))
+            if parsed is not None:
+                year_score = max(0, 10 - abs(parsed.year - current_year))
+                ranked_candidates.append((26 + hint_bonus + year_score, line_idx, match.start(), parsed))
 
-    date_label = re.compile(r"\bDATE(?:\s*/\s*TIME|\s*TIME|TIME)?\b", re.IGNORECASE)
-    search_targets: list[tuple[str, bool]] = []
-    for line in lines:
-        if date_label.search(line):
-            search_targets.append((line, True))
-    search_targets.append((full_text, False))
+    if not ranked_candidates:
+        return None
 
-    # Common date patterns
-    patterns = [
-        # YYYY-MM-DD or YYYY/MM/DD or YYYY.MM.DD
-        r"\b(\d{4})[./-](\d{2})[./-](\d{2})\b",
-        # MM/DD/YYYY or DD/MM/YYYY
-        r"(?<!\d)(\d{1,2})[/-](\d{1,2})[/-](\d{4})(?!\d)",
-        # MM/DD/YY or DD/MM/YY
-        r"(?<!\d)(\d{1,2})[/-](\d{1,2})[/-](\d{2})(?!\d)",
-        # YYYYMMDD
-        r"\b(\d{4})(\d{2})(\d{2})\b",
-        # Month DD, YYYY
-        r"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+(\d{1,2}),?\s+(\d{4})",
-    ]
-
-    for target_text, prefer_year_first in search_targets:
-        normalized_text = _normalize_decimal_spacing(target_text)
-        for pattern in patterns:
-            match = re.search(pattern, normalized_text, re.IGNORECASE)
-            if match:
-                try:
-                    groups = match.groups()
-                    if len(groups) == 3:
-                        if groups[0].isalpha():
-                            # Month name format
-                            month_map = {
-                                "jan": 1,
-                                "feb": 2,
-                                "mar": 3,
-                                "apr": 4,
-                                "may": 5,
-                                "jun": 6,
-                                "jul": 7,
-                                "aug": 8,
-                                "sep": 9,
-                                "oct": 10,
-                                "nov": 11,
-                                "dec": 12,
-                            }
-                            month = month_map.get(groups[0][:3].lower(), 1)
-                            day = int(groups[1])
-                            year = int(groups[2])
-                            return date(year, month, day)
-                        if len(groups[0]) == 4:
-                            # YYYY-MM-DD
-                            year = int(groups[0])
-                            month = int(groups[1])
-                            day = int(groups[2])
-                            return date(year, month, day)
-                        if len(groups[2]) == 4:
-                            parsed = resolve_four_digit_triplet(int(groups[0]), int(groups[1]), int(groups[2]))
-                            if parsed:
-                                return parsed
-                        else:
-                            parsed = resolve_two_digit_triplet(
-                                int(groups[0]),
-                                int(groups[1]),
-                                int(groups[2]),
-                                prefer_year_first=prefer_year_first,
-                            )
-                            if parsed:
-                                return parsed
-                except (ValueError, KeyError):
-                    continue
-
-    # Leave unknown if no date found
-    return None
+    ranked_candidates.sort(key=lambda x: (-x[0], x[1], x[2]))
+    return ranked_candidates[0][3]
 
 
 def _extract_total(lines: list[str]) -> Decimal:
@@ -250,6 +263,16 @@ def _extract_total(lines: list[str]) -> Decimal:
         if any(phrase in line_upper for phrase in excluded_phrases):
             continue
         if "TOTAL" in line_upper and "SUBTOTAL" not in line_upper:
+            prev_upper = lines[idx - 1].upper() if idx > 0 else ""
+            next_upper = lines[idx + 1].upper() if idx + 1 < len(lines) else ""
+            # Skip footer discount totals like:
+            #   TOTAL NUMBER OF ITEMS SOLD
+            #   TOTAL $ 5.00
+            #   DISCOUNT(S)
+            if "DISCOUNT" in next_upper:
+                continue
+            if "TOTAL NUMBER OF ITEMS SOLD" in prev_upper:
+                continue
             # Try to find price on same line
             amount = _extract_price_from_line(line)
             if amount:
@@ -275,23 +298,8 @@ def _extract_tax(lines: list[str]) -> Decimal | None:
     """Extract tax amount (HST, GST, PST, TAX)."""
     if not lines:
         return None
-
-    # Prefer tax in the summary block near the bottom of the receipt.
-    # Anchor the search to the first summary-like line in the bottom half.
-    anchor_idx = None
-    start_search = max(0, len(lines) - max(20, len(lines) // 2))
-    for i in range(start_search, len(lines)):
-        upper = lines[i].upper()
-        if "SUBTOTAL" in upper or "SUB TOTAL" in upper or "TOTAL AFTER TAX" in upper or upper.startswith("TOTAL"):
-            anchor_idx = i
-            break
-
-    if anchor_idx is None:
-        # Fallback: bottom quarter of receipt
-        anchor_idx = max(0, len(lines) - max(10, len(lines) // 4))
-
-    search_range = range(anchor_idx, len(lines))
-    for i in search_range:
+    # Scan bottom-up to prefer summary/footer tax lines while avoiding over-narrow anchors.
+    for i in range(len(lines) - 1, -1, -1):
         line = lines[i]
         line_upper = line.upper()
         # Skip lines that are about subtotal or total (with or without space)

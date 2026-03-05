@@ -105,6 +105,58 @@ def _extract_items(
         r"Redeemed",
     ]
     skip_regex = re.compile("|".join(skip_patterns), re.IGNORECASE)
+    trailing_price_regex = re.compile(r"(\d+\.\d{2})(-?)\s*[HhTtJj]?\s*$")
+
+    def _is_descriptive_candidate(text: str) -> bool:
+        """Return True when a line can safely extend/represent an item description."""
+        if not text or len(text) <= 2:
+            return False
+        if skip_regex.search(text):
+            return False
+        if _looks_like_summary_line(text):
+            return False
+        if _looks_like_quantity_expression(text):
+            return False
+        if trailing_price_regex.search(text):
+            return False
+        if re.match(r"^\$?\d+\.\d{2}\s*[HhTtJj]?\s*$", text):
+            return False
+        if re.match(r"^\d{8,}\s*$", text):
+            return False
+        cleaned = _strip_leading_receipt_codes(text)
+        if not cleaned:
+            return False
+        if _is_section_header_text(cleaned):
+            return False
+        alpha_count = sum(1 for c in cleaned if c.isalpha())
+        alpha_ratio = alpha_count / len(cleaned) if cleaned else 0
+        return alpha_ratio >= 0.4
+
+    def _merge_description_context(base: str, source_idx: int) -> str:
+        """Merge adjacent descriptive fragments (e.g., hyphenated continuation lines)."""
+        merged = base.strip()
+        if source_idx > 0:
+            prev_line = lines[source_idx - 1].strip()
+            prev_clean = _strip_leading_receipt_codes(prev_line)
+            if prev_clean and prev_clean.endswith("-") and _is_descriptive_candidate(prev_line):
+                merged = f"{prev_clean} {merged}".strip()
+        if source_idx + 1 < len(lines):
+            next_line = lines[source_idx + 1].strip()
+            next_clean = _strip_leading_receipt_codes(next_line)
+            if next_clean and merged.endswith("-") and _is_descriptive_candidate(next_line):
+                merged = f"{merged} {next_clean}".strip()
+        return re.sub(r"\s+", " ", merged)
+
+    def _is_weak_inline_description(text: str) -> bool:
+        """Detect low-signal inline descriptors like package sizes."""
+        stripped = text.strip()
+        if not stripped:
+            return False
+        if re.fullmatch(r"\([^)]{1,12}\)", stripped):
+            return True
+        if re.fullmatch(r"\d+(?:\.\d+)?\s*(?:KG|G|LB|L|ML|OZ)", stripped, re.IGNORECASE):
+            return True
+        return False
 
     # Find where the items section ends (at TOTAL line) to avoid processing payment section
     total_line_idx = None
@@ -206,7 +258,8 @@ def _extract_items(
 
             # Get description from same line (before the price)
             # Promo lines like "REG$8.99 5.99" should use the previous line as description
-            force_backward = "REG$" in line_upper or "@REG" in line_upper
+            weak_inline_desc = _is_weak_inline_description(desc_part)
+            force_backward = "REG$" in line_upper or "@REG" in line_upper or weak_inline_desc
 
             # Clean up description - remove item codes at start
             if desc_part:
@@ -253,6 +306,7 @@ def _extract_items(
                 and "@" not in desc_part
                 and "REG" not in desc_part.upper()
             )
+            is_quantity_stub = bool(re.match(r"^\d+\s*@\s*$", desc_part))
             is_qty_expr = (
                 (
                     _looks_like_quantity_expression(desc_part)
@@ -263,6 +317,9 @@ def _extract_items(
                 else False
             )
             if is_malformed_price_marker:
+                continue
+            # Lines like "2 @ 9.69" are quantity/unit-price metadata, not item names.
+            if is_quantity_stub:
                 continue
 
             if desc_part and len(desc_part) > 2 and not is_qty_expr and not force_backward:
@@ -279,6 +336,7 @@ def _extract_items(
                 qty_info = []
                 qty_modifiers = []  # Store parsed quantity modifier data
                 found_desc = None
+                found_desc_line_idx = None
                 # For priced section headers, description usually follows on the next line
                 # as a SKU-led item line (e.g., "62843020000 DOUGHNUTS MRJ").
                 if is_priced_section_header:
@@ -309,6 +367,7 @@ def _extract_items(
                         if alpha_ratio < 0.5:
                             continue
                         found_desc = cleaned_next
+                        found_desc_line_idx = j
                         break
                 if is_priced_section_header and found_desc is None:
                     # No safe lookahead description for this header price row.
@@ -368,9 +427,14 @@ def _extract_items(
                             cleaned_prev = _strip_leading_receipt_codes(prev_line)
                             if cleaned_prev:
                                 found_desc = cleaned_prev
+                                found_desc_line_idx = j
                                 break
 
                 if found_desc:
+                    if found_desc_line_idx is not None:
+                        found_desc = _merge_description_context(found_desc, found_desc_line_idx)
+                    if weak_inline_desc:
+                        found_desc = f"{found_desc} {desc_part}".strip()
                     quantity = 1
                     description_suffix = ""
 

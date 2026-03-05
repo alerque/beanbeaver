@@ -17,7 +17,6 @@ MAX_ITEM_DISTANCE = 0.08  # Max vertical distance to associate price with item
 
 # OCR sometimes inserts spaces inside decimal amounts, e.g. "3. 50".
 SPACED_DECIMAL_PATTERN = re.compile(r"(?<=\d)\.\s+(?=\d{2}\b)")
-
 # Section headers to skip (not actual items)
 SECTION_HEADERS = {"MEAT", "SEAFOOD", "PRODUCE", "DELI", "GROCERY", "BAKERY", "FROZEN"}
 SECTION_HEADER_WITH_AISLE = re.compile(r"^[^A-Z0-9]*\d{1,2}\s*[-:]\s*[A-Z]{3,}$")

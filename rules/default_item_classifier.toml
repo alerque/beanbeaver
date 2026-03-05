@@ -309,3 +309,66 @@ keywords = ["WING HING SWEET SOY BEVER"]
 category = "Expenses:Food:Grocery:Drink"
 priority = -5
 exact_only = false
+
+[[rules]]
+id = "legacy_0051"
+keywords = ["1944033 CHAMP SHORT", "CHAMP SHORT"]
+category = "Expenses:Shopping:Clothing"
+priority = -80
+exact_only = false
+
+[[rules]]
+id = "legacy_0052"
+keywords = ["295619 KS BAGS 60", "KS BAGS 60"]
+category = "Expenses:Home:HouseholdSupply"
+priority = -80
+exact_only = false
+
+[[rules]]
+id = "legacy_0053"
+keywords = ["108934 RAINFOREST", "RAINFOREST"]
+category = "Expenses:Food:Grocery:Drink:Coffee"
+priority = -80
+exact_only = false
+
+[[rules]]
+id = "legacy_0054"
+keywords = ["1218587 SWIFFER DUST", "SWIFFER DUST"]
+category = "Expenses:Home:HouseholdSupply"
+priority = -80
+exact_only = false
+
+[[rules]]
+id = "legacy_0055"
+keywords = ["3458556 TIDE CQLDWTR", "TIDE CQLDWTR", "TIDE"]
+category = "Expenses:Home:HouseholdSupply"
+priority = -80
+exact_only = false
+
+[[rules]]
+id = "legacy_0056"
+keywords = ["2946010 SKECHERSGLID", "SKECHERSGLID", "SKECHERS"]
+category = "Expenses:Shopping:Clothing"
+priority = -80
+exact_only = false
+
+[[rules]]
+id = "legacy_0057"
+keywords = ["1727590 CASCADE PLUS", "CASCADE PLUS", "CASCADE"]
+category = "Expenses:Home:HouseholdSupply"
+priority = -80
+exact_only = false
+
+[[rules]]
+id = "legacy_0058"
+keywords = ["BAKING SODA"]
+category = "Expenses:Home:HouseholdSupply"
+priority = 80
+exact_only = false
+
+[[rules]]
+id = "legacy_0059"
+keywords = ["1457015 GLIDE ADV", "GLIDE ADV"]
+category = "Expenses:PersonalCare:Tooth"
+priority = -80
+exact_only = false
