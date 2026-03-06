@@ -20,6 +20,8 @@ jobs:
       PRIVATE_TESTS_TOKEN: ${{ secrets.BEANBEAVER_PRIVATE_TESTS_READ_TOKEN }}
       # Update this if the private test repository lives elsewhere.
       PRIVATE_TESTS_REPO: Endle/beanbeaver-private-test
+      # Override if the private repo stores tests somewhere else.
+      PRIVATE_TESTS_PATH: tests
     steps:
       - name: Validate secret configuration
         run: |
@@ -69,13 +71,18 @@ jobs:
         run: |
           set -euo pipefail
           PRIVATE_ROOT="${RUNNER_TEMP}/beanbeaver-private-tests"
-          if [ ! -d "${PRIVATE_ROOT}/tests" ]; then
-            echo "Private test repo must contain a tests/ directory" >&2
+          TEST_PATH="${PRIVATE_ROOT}/${PRIVATE_TESTS_PATH}"
+          if [ ! -d "${TEST_PATH}" ] && [ -d "${PRIVATE_ROOT}/vendor/beanbeaver/tests" ]; then
+            TEST_PATH="${PRIVATE_ROOT}/vendor/beanbeaver/tests"
+          fi
+
+          if [ ! -d "${TEST_PATH}" ]; then
+            echo "Private test repo must contain tests at ${PRIVATE_TESTS_PATH} or vendor/beanbeaver/tests" >&2
             exit 1
           fi
 
           # Keep output compact so fixture names and paths do not spill into logs.
-          pytest -q --maxfail=1 "${PRIVATE_ROOT}/tests"
+          pytest -q --maxfail=1 "${TEST_PATH}"
 
       - name: Scrub private test checkout
         if: always()
