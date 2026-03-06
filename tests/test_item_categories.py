@@ -246,3 +246,143 @@ def test_glide_adv_maps_to_tooth_care_with_low_priority_public_rule() -> None:
         )
         == "Expenses:PersonalCare:Tooth"
     )
+
+
+def test_white_rabbit_maps_to_snacks_with_low_priority_public_rule() -> None:
+    assert (
+        categorize_item(
+            "1968518 WHITE RABBIT",
+            rule_layers=load_item_category_rule_layers(),
+        )
+        == "Expenses:Food:Grocery:Snacks"
+    )
+
+
+def test_marc_anthony_maps_to_personal_care_with_low_priority_public_rule() -> None:
+    assert (
+        categorize_item(
+            "443404 MARC ANTHONY",
+            rule_layers=load_item_category_rule_layers(),
+        )
+        == "Expenses:PersonalCare"
+    )
+
+
+def test_toliet_2pk_maps_to_household_supply_with_low_priority_public_rule() -> None:
+    assert (
+        categorize_item(
+            "1796144 TOLIET 2PK",
+            rule_layers=load_item_category_rule_layers(),
+        )
+        == "Expenses:Home:HouseholdSupply"
+    )
+
+
+def test_fo_tank_s_maps_to_clothing_with_low_priority_public_rule() -> None:
+    assert (
+        categorize_item(
+            "3966510 FO TANK S",
+            rule_layers=load_item_category_rule_layers(),
+        )
+        == "Expenses:Shopping:Clothing"
+    )
+
+
+def test_lavazza_1kg_maps_to_coffee_with_low_priority_public_rule() -> None:
+    assert (
+        categorize_item(
+            "599010 LAVAZZA 1KG",
+            rule_layers=load_item_category_rule_layers(),
+        )
+        == "Expenses:Food:Grocery:Drink:Coffee"
+    )
+
+
+def test_togo_van_2kg_maps_to_dairy_with_low_priority_public_rule() -> None:
+    assert (
+        categorize_item(
+            "1355285 TOGO VAN 2KG",
+            rule_layers=load_item_category_rule_layers(),
+        )
+        == "Expenses:Food:Grocery:Dairy"
+    )
+
+
+def test_pineapple_bun_prefers_bakery_with_high_priority_bun_rule() -> None:
+    assert (
+        categorize_item(
+            "Red Bean Pinapple Bun",
+            rule_layers=load_item_category_rule_layers(),
+        )
+        == "Expenses:Food:Grocery:Bakery"
+    )
+
+
+def test_sandwich_biscuits_matcha_maps_to_snacks_with_high_priority_public_rule() -> None:
+    assert (
+        categorize_item(
+            "*Sandwich Biscuits(Matcha)",
+            rule_layers=load_item_category_rule_layers(),
+        )
+        == "Expenses:Food:Grocery:Snacks"
+    )
+
+
+def test_white_pepper_powder_maps_to_seasoning_with_high_priority_public_rule() -> None:
+    assert (
+        categorize_item(
+            "D.M.D White Pepper Powder",
+            rule_layers=load_item_category_rule_layers(),
+        )
+        == "Expenses:Food:Grocery:Seasoning"
+    )
+
+
+def test_yuan_qi_sen_lin_iced_tea_maps_to_drink_with_high_priority_public_rule() -> None:
+    assert (
+        categorize_item(
+            "*Yuan Qi Sen Lin Iced Tea",
+            rule_layers=load_item_category_rule_layers(),
+        )
+        == "Expenses:Food:Grocery:Drink"
+    )
+
+
+def test_tropicana_daily_c_tea_maps_to_drink_with_high_priority_public_rule() -> None:
+    assert (
+        categorize_item(
+            "'Tropicana Daily C Tea Dr ×1",
+            rule_layers=load_item_category_rule_layers(),
+        )
+        == "Expenses:Food:Grocery:Drink"
+    )
+
+
+def test_orion_double_choco_pie_maps_to_snacks_with_high_priority_public_rule() -> None:
+    assert (
+        categorize_item(
+            "*Or:ion Double Choco Pie 12",
+            rule_layers=load_item_category_rule_layers(),
+        )
+        == "Expenses:Food:Grocery:Snacks"
+    )
+
+
+def test_yyh_chillies_maps_to_seasoning_with_low_risk_public_rule() -> None:
+    assert (
+        categorize_item(
+            "YYH Chillies 80g",
+            rule_layers=load_item_category_rule_layers(),
+        )
+        == "Expenses:Food:Grocery:Seasoning"
+    )
+
+
+def test_la_pian_maps_to_snacks_with_low_risk_public_rule() -> None:
+    assert (
+        categorize_item(
+            "La Pian (Spicy Gluten Sli",
+            rule_layers=load_item_category_rule_layers(),
+        )
+        == "Expenses:Food:Grocery:Snacks"
+    )

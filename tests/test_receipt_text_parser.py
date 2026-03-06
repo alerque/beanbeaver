@@ -224,3 +224,122 @@ def test_extract_items_skips_quantity_stub_price_lines() -> None:
     assert all(desc != "2 @" for desc in descriptions)
     assert Decimal("12.99") in prices
     assert Decimal("19.38") in prices
+
+
+def test_extract_items_skips_unit_price_fragment_ghost_lines() -> None:
+    lines = [
+        "HLY - Fish Cracker Tomato 2.59H",
+        "@2.592/$3.50",
+        "1 @ $2.59",
+        "LZJ - Ice Cream 0.79H",
+        "62g)@0.794/$1.99",
+        "1 @ $0.79",
+        "SUB Total 3.38",
+        "Total after Tax 3.38",
+    ]
+
+    items = _extract_items(
+        lines,
+        summary_amounts={Decimal("3.38")},
+        item_category_rule_layers=load_item_category_rule_layers(),
+    )
+
+    assert any(item.description == "HLY - Fish Cracker Tomato" and item.price == Decimal("2.59") for item in items)
+    assert any(item.description == "LZJ - Ice Cream" and item.price == Decimal("0.79") for item in items)
+    assert all("@" not in item.description for item in items)
+    assert all("/$" not in item.description for item in items)
+
+
+def test_extract_items_keeps_priced_bakery_generic_label() -> None:
+    lines = [
+        "&&14-Bakery 1",
+        "BAKERY 6.99",
+        "SUB Total 6.99",
+        "Total after Tax 6.99",
+    ]
+
+    items = _extract_items(
+        lines,
+        summary_amounts={Decimal("6.99")},
+        item_category_rule_layers=load_item_category_rule_layers(),
+    )
+
+    assert len(items) == 1
+    assert items[0].description == "BAKERY"
+    assert items[0].price == Decimal("6.99")
+
+
+def test_extract_items_recovers_item_from_split_multibuy_price_marker() -> None:
+    lines = [
+        "SunriseTofu 700g",
+        "() 5.99",
+        "*Kam Yen Jan Chinese Sausa",
+        "*Yo Yan Soya Drink Sweet x2",
+        "($2F 3.99",
+        "(2 /for $3.99) 2 /for",
+        "&& Taxed Grocery",
+        '"Orion Potato Chips-Orig x1',
+        "(2 /for $5.00) 2 /for 5.00H",
+        "SUB Total 14.98",
+        "Total after Tax 14.98",
+    ]
+
+    items = _extract_items(
+        lines,
+        summary_amounts={Decimal("14.98")},
+        item_category_rule_layers=load_item_category_rule_layers(),
+    )
+
+    assert any(item.description == "SunriseTofu 700g" and item.price == Decimal("5.99") for item in items)
+    assert any(item.description == "*Yo Yan Soya Drink Sweet x2" and item.price == Decimal("3.99") for item in items)
+    assert any(item.description == '"Orion Potato Chips-Orig x1' and item.price == Decimal("5.00") for item in items)
+
+
+def test_extract_items_skips_compact_promo_marker_ghost_price_line() -> None:
+    lines = [
+        "*Asahi Rich Calpis Drink 1.99",
+        "EG2.99",
+        "JHL. Fried Red Onion 227g 6.99",
+        "SUB Total 8.98",
+        "Total after Tax 8.98",
+    ]
+
+    items = _extract_items(
+        lines,
+        summary_amounts={Decimal("8.98")},
+        item_category_rule_layers=load_item_category_rule_layers(),
+    )
+
+    assert len(items) == 2
+    assert items[0].description == "*Asahi Rich Calpis Drink"
+    assert items[0].price == Decimal("1.99")
+    assert items[1].description == "JHL. Fried Red Onion 227g"
+    assert items[1].price == Decimal("6.99")
+
+
+def test_extract_items_prefers_forward_item_for_reg_marker_price_lines() -> None:
+    lines = [
+        "*Chuan Qi Hot Pot Sauce 10 0.99",
+        "(|@REG$1.29 1.99",
+        "La Pian (Spicy Gluten Sli",
+        "*Yuan Qi Sen Lin Iced Tea 1.99",
+        "(REG$299 3.99",
+        "*Or:ion Double Choco Pie 12",
+        "&& Meat 13.88",
+        "SUB Total 22.84",
+        "Total after Tax 22.84",
+    ]
+
+    items = _extract_items(
+        lines,
+        summary_amounts={Decimal("22.84")},
+        item_category_rule_layers=load_item_category_rule_layers(),
+    )
+
+    assert any(item.description == "*Chuan Qi Hot Pot Sauce 10" and item.price == Decimal("0.99") for item in items)
+    assert any(item.description == "La Pian (Spicy Gluten Sli" and item.price == Decimal("1.99") for item in items)
+    assert any(item.description == "*Yuan Qi Sen Lin Iced Tea" and item.price == Decimal("1.99") for item in items)
+    assert any(item.description == "*Or:ion Double Choco Pie 12" and item.price == Decimal("3.99") for item in items)
+    assert not any(
+        item.description == "*Yuan Qi Sen Lin Iced Tea 1.99" and item.price == Decimal("3.99") for item in items
+    )

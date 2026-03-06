@@ -372,3 +372,101 @@ keywords = ["1457015 GLIDE ADV", "GLIDE ADV"]
 category = "Expenses:PersonalCare:Tooth"
 priority = -80
 exact_only = false
+
+[[rules]]
+id = "legacy_0060"
+keywords = ["1968518 WHITE RABBIT", "WHITE RABBIT"]
+category = "Expenses:Food:Grocery:Snacks"
+priority = -80
+exact_only = false
+
+[[rules]]
+id = "legacy_0061"
+keywords = ["443404 MARC ANTHONY", "MARC ANTHONY"]
+category = "Expenses:PersonalCare"
+priority = -80
+exact_only = false
+
+[[rules]]
+id = "legacy_0062"
+keywords = ["1796144 TOLIET 2PK", "TOLIET 2PK"]
+category = "Expenses:Home:HouseholdSupply"
+priority = -80
+exact_only = false
+
+[[rules]]
+id = "legacy_0063"
+keywords = ["3966510 FO TANK S", "FO TANK S", "TANK TOP"]
+category = "Expenses:Shopping:Clothing"
+priority = -80
+exact_only = false
+
+[[rules]]
+id = "legacy_0064"
+keywords = ["599010 LAVAZZA 1KG", "LAVAZZA 1KG", "LAVAZZA"]
+category = "Expenses:Food:Grocery:Drink:Coffee"
+priority = -80
+exact_only = false
+
+[[rules]]
+id = "legacy_0065"
+keywords = ["1355285 IOG0 VAN 2KG", "1355285 TOGO VAN 2KG", "IOG0 VAN 2KG", "TOGO VAN 2KG"]
+category = "Expenses:Food:Grocery:Dairy"
+priority = -80
+exact_only = false
+
+[[rules]]
+id = "legacy_0066"
+keywords = ["PINEAPPLE BUN", "PINAPPLE BUN", "BUN", "BUNS"]
+category = "Expenses:Food:Grocery:Bakery"
+priority = 80
+exact_only = true
+
+[[rules]]
+id = "legacy_0067"
+keywords = ["SANDWICH BISCUITS", "BISCUITS(MATCHA)", "BISCUITS MATCHA"]
+category = "Expenses:Food:Grocery:Snacks"
+priority = 80
+exact_only = false
+
+[[rules]]
+id = "legacy_0068"
+keywords = ["D.M.D WHITE PEPPER POWDER", "WHITE PEPPER POWDER"]
+category = "Expenses:Food:Grocery:Seasoning"
+priority = 80
+exact_only = false
+
+[[rules]]
+id = "legacy_0069"
+keywords = ["YUAN QI SEN LIN ICED TEA"]
+category = "Expenses:Food:Grocery:Drink"
+priority = 80
+exact_only = false
+
+[[rules]]
+id = "legacy_0070"
+keywords = ["TROPICANA DAILY C TEA", "DAILY C TEA DR"]
+category = "Expenses:Food:Grocery:Drink"
+priority = 80
+exact_only = false
+
+[[rules]]
+id = "legacy_0071"
+keywords = ["ORION DOUBLE CHOCO PIE", "OR:ION DOUBLE CHOCO PIE", "DOUBLE CHOCO PIE"]
+category = "Expenses:Food:Grocery:Snacks"
+priority = 80
+exact_only = false
+
+[[rules]]
+id = "legacy_0072"
+keywords = ["YYH CHILLIES", "YYH CHILIES"]
+category = "Expenses:Food:Grocery:Seasoning"
+priority = 40
+exact_only = false
+
+[[rules]]
+id = "legacy_0073"
+keywords = ["LA PIAN"]
+category = "Expenses:Food:Grocery:Snacks"
+priority = 40
+exact_only = false
