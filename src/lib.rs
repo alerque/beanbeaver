@@ -10,6 +10,8 @@ struct PyMatchConfig {
     amount_tolerance_scaled: i64,
     #[pyo3(item("amount_tolerance_percent_scaled"))]
     amount_tolerance_percent_scaled: i64,
+    #[pyo3(item("merchant_min_similarity_scaled"))]
+    merchant_min_similarity_scaled: i64,
 }
 
 #[derive(FromPyObject)]
@@ -57,6 +59,7 @@ fn to_match_config(config: PyMatchConfig) -> matcher::MatchConfig {
         config.date_tolerance_days,
         config.amount_tolerance_scaled,
         config.amount_tolerance_percent_scaled,
+        config.merchant_min_similarity_scaled,
     )
 }
 
@@ -77,7 +80,9 @@ fn to_transaction_input(transaction: PyTransactionInput) -> matcher::Transaction
     )
 }
 
-fn to_transaction_query_input(transaction: PyTransactionQueryInput) -> matcher::TransactionQueryInput {
+fn to_transaction_query_input(
+    transaction: PyTransactionQueryInput,
+) -> matcher::TransactionQueryInput {
     matcher::TransactionQueryInput::new(
         transaction.date_ordinal,
         transaction.amount_scaled,
