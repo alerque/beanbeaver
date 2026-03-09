@@ -174,6 +174,122 @@ def test_extract_items_with_bbox_prefers_item_above_onsale_price() -> None:
     ]
 
 
+def test_extract_items_with_bbox_keeps_following_priced_row_from_stealing_multibuy_total() -> None:
+    # Reproduces the private C&C fixture where the next priced row sits within
+    # the same Y tolerance band as the 4.59 multi-buy total.
+    lines = [
+        {
+            "text": "*S & B Wasabi",
+            "words": [_word("*S & B Wasabi", 0.00, 0.159, 0.309, 0.172)],
+        },
+        {
+            "text": "(E)ON SALE 1.98",
+            "words": [
+                _word("(E)ON SALE", 0.129, 0.171, 0.307, 0.180),
+                _word("1.98", 0.897, 0.180, 0.951, 0.188),
+            ],
+        },
+        {
+            "text": "2 @ $0.99 4.59",
+            "words": [
+                _word("2 @ $0.99", 0.081, 0.180, 0.167, 0.191),
+                _word("4.59", 0.889, 0.189, 0.950, 0.197),
+            ],
+        },
+        {
+            "text": "Hot Kid Honey Flavour Bal",
+            "words": [_word("Hot Kid Honey Flavour Bal", 0.192, 0.185, 0.429, 0.200)],
+        },
+        {
+            "text": "*Udon Noodles With Tonkots 3.99",
+            "words": [
+                _word("*Udon Noodles With Tonkots", 0.112, 0.204, 0.496, 0.219),
+                _word("3.99", 0.884, 0.207, 0.949, 0.216),
+            ],
+        },
+        {
+            "text": "ONSAL 3.99",
+            "words": [
+                _word("ONSAL", 0.312, 0.217, 0.379, 0.223),
+                _word("3.99", 0.882, 0.224, 0.948, 0.234),
+            ],
+        },
+        {
+            "text": "*Lucky Pearl Shanghai Dry",
+            "words": [_word("*Lucky Pearl Shanghai Dry", 0.108, 0.222, 0.472, 0.236)],
+        },
+        {
+            "text": "TOTAL 10.56",
+            "words": [
+                _word("TOTAL", 0.09, 0.500, 0.180, 0.512),
+                _word("10.56", 0.88, 0.500, 0.94, 0.512),
+            ],
+        },
+    ]
+
+    items = _extract_items_with_bbox(
+        pages=[{"lines": lines}],
+        item_category_rule_layers=load_receipt_structuring_rule_layers(),
+    )
+
+    pairs = [(item.description, item.price) for item in items]
+    assert ("Hot Kid Honey Flavour Bal", Decimal("4.59")) in pairs
+    assert ("Udon Noodles With Tonkots", Decimal("3.99")) in pairs
+    assert ("Lucky Pearl Shanghai Dry", Decimal("3.99")) in pairs
+    assert not any(
+        item.description == "Udon Noodles With Tonkots" and item.price == Decimal("4.59") for item in items
+    )
+    assert not any(
+        item.description == "Hot Kid Honey Flavour Bal" and item.price == Decimal("3.99") for item in items
+    )
+
+
+def test_extract_items_with_bbox_accepts_following_item_for_tnt_department_price_rows() -> None:
+    lines = [
+        {
+            "text": "PRODUCE W $2.68",
+            "words": [
+                _word("PRODUCE", 0.02, 0.150, 0.12, 0.170),
+                _word("W $2.68", 0.84, 0.164, 0.93, 0.180),
+            ],
+        },
+        {
+            "text": "(SALE) WHITE POMELO",
+            "words": [_word("(SALE) WHITE POMELO", 0.05, 0.176, 0.30, 0.188)],
+        },
+        {
+            "text": "DELI W $4.99",
+            "words": [
+                _word("DELI", 0.02, 0.530, 0.06, 0.544),
+                _word("W $4.99", 0.87, 0.545, 0.95, 0.563),
+            ],
+        },
+        {
+            "text": "NEILSON JOYYA CHOCOLATE E MILK",
+            "words": [
+                _word("NEILSON JOYYA CHOCOLATE", 0.08, 0.552, 0.36, 0.566),
+                _word("E MILK", 0.40, 0.552, 0.53, 0.566),
+            ],
+        },
+        {
+            "text": "TOTAL 7.67",
+            "words": [
+                _word("TOTAL", 0.09, 0.700, 0.180, 0.712),
+                _word("7.67", 0.88, 0.700, 0.93, 0.712),
+            ],
+        },
+    ]
+
+    items = _extract_items_with_bbox(
+        pages=[{"lines": lines}],
+        item_category_rule_layers=load_receipt_structuring_rule_layers(),
+    )
+
+    pairs = [(item.description, item.price) for item in items]
+    assert ("WHITE POMELO", Decimal("2.68")) in pairs
+    assert ("NEILSON JOYYA CHOCOLATE E MILK", Decimal("4.99")) in pairs
+
+
 def test_extract_items_with_bbox_keeps_cash_prefix_product_name() -> None:
     lines = [
         {
